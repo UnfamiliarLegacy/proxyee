@@ -68,6 +68,10 @@ public class HttpProxyInterceptPipeline implements Iterable<HttpProxyIntercept> 
         return this.intercepts.get(index);
     }
 
+    public void remove(HttpProxyIntercept intercept) {
+        this.intercepts.remove(intercept);
+    }
+
     public void beforeConnect(Channel clientChannel) throws Exception {
         if (this.posBeforeConnect < intercepts.size()) {
             HttpProxyIntercept intercept = intercepts.get(this.posBeforeConnect++);
@@ -93,14 +97,6 @@ public class HttpProxyInterceptPipeline implements Iterable<HttpProxyIntercept> 
         this.posBeforeContent = 0;
     }
 
-    public void beforeRequest(Channel clientChannel, WebSocketFrame webSocketFrame) throws Exception {
-        if (this.posBeforeContent < intercepts.size()) {
-            HttpProxyIntercept intercept = intercepts.get(this.posBeforeContent++);
-            intercept.beforeRequest(clientChannel, webSocketFrame, this);
-        }
-        this.posBeforeContent = 0;
-    }
-
     public void afterResponse(Channel clientChannel, Channel proxyChannel, HttpResponse httpResponse)
             throws Exception {
         this.httpResponse = httpResponse;
@@ -120,11 +116,27 @@ public class HttpProxyInterceptPipeline implements Iterable<HttpProxyIntercept> 
         this.posAfterContent = 0;
     }
 
-    public void afterResponse(Channel clientChannel, Channel proxyChannel, WebSocketFrame webSocketFrame)
+    public void websocketRequest(Channel clientChannel, Channel proxyChannel, WebSocketFrame webSocketFrame) throws Exception {
+        if (this.posBeforeContent < intercepts.size()) {
+            HttpProxyIntercept intercept = intercepts.get(this.posBeforeContent++);
+            intercept.onWebsocketRequest(clientChannel, proxyChannel, webSocketFrame, this);
+        }
+        this.posBeforeContent = 0;
+    }
+
+    public void websocketResponse(Channel clientChannel, Channel proxyChannel, WebSocketFrame webSocketFrame)
             throws Exception {
         if (this.posAfterContent < intercepts.size()) {
             HttpProxyIntercept intercept = intercepts.get(this.posAfterContent++);
-            intercept.afterResponse(clientChannel, proxyChannel, webSocketFrame, this);
+            intercept.onWebsocketResponse(clientChannel, proxyChannel, webSocketFrame, this);
+        }
+        this.posAfterContent = 0;
+    }
+
+    public void websocketClose() {
+        if (this.posAfterContent < intercepts.size()) {
+            HttpProxyIntercept intercept = intercepts.get(this.posAfterContent++);
+            intercept.onWebsocketClose(this);
         }
         this.posAfterContent = 0;
     }

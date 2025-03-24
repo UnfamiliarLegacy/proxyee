@@ -39,7 +39,7 @@ public class HttpProxyClientHandler extends ChannelInboundHandlerAdapter {
         } else if (msg instanceof HttpContent) {
             interceptPipeline.afterResponse(clientChannel, ctx.channel(), (HttpContent) msg);
         } else if (msg instanceof WebSocketFrame) {
-            interceptPipeline.afterResponse(clientChannel, ctx.channel(), (WebSocketFrame) msg);
+            interceptPipeline.websocketResponse(clientChannel, ctx.channel(), (WebSocketFrame) msg);
         } else {
             clientChannel.writeAndFlush(msg);
         }

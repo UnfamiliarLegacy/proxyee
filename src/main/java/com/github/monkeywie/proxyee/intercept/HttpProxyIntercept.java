@@ -35,11 +35,6 @@ public class HttpProxyIntercept {
         pipeline.beforeRequest(clientChannel, httpContent);
     }
 
-    public void beforeRequest(Channel clientChannel, WebSocketFrame webSocketFrame,
-                              HttpProxyInterceptPipeline pipeline) throws Exception {
-        pipeline.beforeRequest(clientChannel, webSocketFrame);
-    }
-
     /**
      * 拦截代理服务器到客户端的响应头
      */
@@ -58,9 +53,21 @@ public class HttpProxyIntercept {
         pipeline.afterResponse(clientChannel, proxyChannel, httpContent);
     }
 
-    public void afterResponse(Channel clientChannel, Channel proxyChannel, WebSocketFrame webSocketFrame,
-                              HttpProxyInterceptPipeline pipeline)
-            throws Exception {
-        pipeline.afterResponse(clientChannel, proxyChannel, webSocketFrame);
+    public void onWebsocketRequest(Channel clientChannel,
+                                   Channel proxyChannel,
+                                   WebSocketFrame webSocketFrame,
+                                   HttpProxyInterceptPipeline pipeline) throws Exception {
+        pipeline.websocketRequest(clientChannel, proxyChannel, webSocketFrame);
+    }
+
+    public void onWebsocketResponse(Channel clientChannel,
+                                    Channel proxyChannel,
+                                    WebSocketFrame webSocketFrame,
+                                    HttpProxyInterceptPipeline pipeline) throws Exception {
+        pipeline.websocketResponse(clientChannel, proxyChannel, webSocketFrame);
+    }
+
+    public void onWebsocketClose(HttpProxyInterceptPipeline pipeline) {
+        pipeline.websocketClose();
     }
 }

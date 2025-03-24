@@ -22,7 +22,6 @@ import io.netty.handler.codec.DecoderException;
 import io.netty.handler.codec.DecoderResult;
 import io.netty.handler.codec.http.*;
 import io.netty.handler.codec.http.websocketx.*;
-import io.netty.handler.codec.http.websocketx.extensions.compression.WebSocketClientCompressionHandler;
 import io.netty.handler.proxy.ProxyHandler;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
@@ -201,7 +200,7 @@ public class HttpProxyServerHandler extends ChannelInboundHandlerAdapter {
                 setStatus(1);
             }
         } else if (msg instanceof WebSocketFrame) {
-            getInterceptPipeline().beforeRequest(ctx.channel(), (WebSocketFrame) msg);
+            getInterceptPipeline().websocketRequest(ctx.channel(), getChannelFuture().channel(), (WebSocketFrame) msg);
         } else { // ssl和websocket的握手处理
             ByteBuf byteBuf = (ByteBuf) msg;
             if (getServerConfig().isHandleSsl() && byteBuf.getByte(0) == 22 && doMitm()) {// ssl握手
@@ -267,6 +266,9 @@ public class HttpProxyServerHandler extends ChannelInboundHandlerAdapter {
         ctx.channel().close();
         if (getServerConfig().getHttpProxyAcceptHandler() != null) {
             getServerConfig().getHttpProxyAcceptHandler().onClose(ctx.channel());
+        }
+        if (getRequestProto().getWebsocketUrl() != null) {
+            getInterceptPipeline().websocketClose();
         }
     }
 
@@ -357,6 +359,12 @@ public class HttpProxyServerHandler extends ChannelInboundHandlerAdapter {
                     handshaker.selectedSubprotocol(),
                     true,
                     headers));
+
+            // Update request proto.
+            requestProto.setWebsocketUrl(handshaker.uri());
+
+            // Also update request proto of the handler itself.
+            getRequestProto().setWebsocketUrl(handshaker.uri());
         }
 
         return wsHandler;
@@ -463,11 +471,6 @@ public class HttpProxyServerHandler extends ChannelInboundHandlerAdapter {
             }
 
             @Override
-            public void beforeRequest(Channel clientChannel, WebSocketFrame webSocketFrame, HttpProxyInterceptPipeline pipeline) throws Exception {
-                handleProxyData(clientChannel, webSocketFrame, false);
-            }
-
-            @Override
             public void afterResponse(Channel clientChannel, Channel proxyChannel, HttpResponse httpResponse,
                                       HttpProxyInterceptPipeline pipeline) throws Exception {
                 clientChannel.writeAndFlush(httpResponse);
@@ -480,8 +483,18 @@ public class HttpProxyServerHandler extends ChannelInboundHandlerAdapter {
             }
 
             @Override
-            public void afterResponse(Channel clientChannel, Channel proxyChannel, WebSocketFrame webSocketFrame,
-                                      HttpProxyInterceptPipeline pipeline) throws Exception {
+            public void onWebsocketRequest(Channel clientChannel,
+                                           Channel proxyChannel,
+                                           WebSocketFrame webSocketFrame,
+                                           HttpProxyInterceptPipeline pipeline) throws Exception {
+                handleProxyData(clientChannel, webSocketFrame, false);
+            }
+
+            @Override
+            public void onWebsocketResponse(Channel clientChannel,
+                                            Channel proxyChannel,
+                                            WebSocketFrame webSocketFrame,
+                                            HttpProxyInterceptPipeline pipeline) throws Exception {
                 clientChannel.writeAndFlush(webSocketFrame);
             }
         });

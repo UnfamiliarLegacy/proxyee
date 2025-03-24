@@ -50,14 +50,9 @@ public class ProtoUtil {
         private String host;
         private int port;
         private boolean ssl;
+        private String websocketUrl;
 
         public RequestProto() {
-        }
-
-        public RequestProto(String host, int port, boolean ssl) {
-            this.host = host;
-            this.port = port;
-            this.ssl = ssl;
         }
 
         public String getHost() {
@@ -84,6 +79,14 @@ public class ProtoUtil {
             this.ssl = ssl;
         }
 
+        public String getWebsocketUrl() {
+            return websocketUrl;
+        }
+
+        public void setWebsocketUrl(String websocketUrl) {
+            this.websocketUrl = websocketUrl;
+        }
+
         public boolean getProxy() {
             return proxy;
         }
@@ -99,12 +102,13 @@ public class ProtoUtil {
             RequestProto that = (RequestProto) o;
             return port == that.port &&
                     ssl == that.ssl &&
-                    host.equals(that.host);
+                    Objects.equals(host, that.host) &&
+                    Objects.equals(websocketUrl, that.websocketUrl);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(host, port, ssl);
+            return Objects.hash(host, port, ssl, websocketUrl);
         }
 
         public RequestProto copy() {
@@ -113,6 +117,7 @@ public class ProtoUtil {
             requestProto.setHost(host);
             requestProto.setPort(port);
             requestProto.setSsl(ssl);
+            requestProto.setWebsocketUrl(websocketUrl);
             return requestProto;
         }
     }

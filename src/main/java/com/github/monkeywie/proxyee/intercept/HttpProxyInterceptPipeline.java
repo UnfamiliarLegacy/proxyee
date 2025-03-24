@@ -6,6 +6,7 @@ import io.netty.channel.Channel;
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
+import io.netty.handler.codec.http.websocketx.WebSocketFrame;
 
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -92,6 +93,14 @@ public class HttpProxyInterceptPipeline implements Iterable<HttpProxyIntercept> 
         this.posBeforeContent = 0;
     }
 
+    public void beforeRequest(Channel clientChannel, WebSocketFrame webSocketFrame) throws Exception {
+        if (this.posBeforeContent < intercepts.size()) {
+            HttpProxyIntercept intercept = intercepts.get(this.posBeforeContent++);
+            intercept.beforeRequest(clientChannel, webSocketFrame, this);
+        }
+        this.posBeforeContent = 0;
+    }
+
     public void afterResponse(Channel clientChannel, Channel proxyChannel, HttpResponse httpResponse)
             throws Exception {
         this.httpResponse = httpResponse;
@@ -107,6 +116,15 @@ public class HttpProxyInterceptPipeline implements Iterable<HttpProxyIntercept> 
         if (this.posAfterContent < intercepts.size()) {
             HttpProxyIntercept intercept = intercepts.get(this.posAfterContent++);
             intercept.afterResponse(clientChannel, proxyChannel, httpContent, this);
+        }
+        this.posAfterContent = 0;
+    }
+
+    public void afterResponse(Channel clientChannel, Channel proxyChannel, WebSocketFrame webSocketFrame)
+            throws Exception {
+        if (this.posAfterContent < intercepts.size()) {
+            HttpProxyIntercept intercept = intercepts.get(this.posAfterContent++);
+            intercept.afterResponse(clientChannel, proxyChannel, webSocketFrame, this);
         }
         this.posAfterContent = 0;
     }

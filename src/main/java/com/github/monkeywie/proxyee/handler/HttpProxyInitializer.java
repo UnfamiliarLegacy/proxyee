@@ -5,6 +5,9 @@ import com.github.monkeywie.proxyee.util.ProtoUtil.RequestProto;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelInitializer;
 import io.netty.handler.codec.http.HttpClientCodec;
+import io.netty.handler.codec.http.HttpContentDecompressor;
+import io.netty.handler.codec.http.HttpObjectAggregator;
+import io.netty.handler.codec.http.websocketx.extensions.compression.WebSocketClientCompressionHandler;
 import io.netty.handler.proxy.ProxyHandler;
 
 /**
@@ -12,15 +15,17 @@ import io.netty.handler.proxy.ProxyHandler;
  */
 public class HttpProxyInitializer extends ChannelInitializer {
 
-    private Channel clientChannel;
-    private RequestProto requestProto;
-    private ProxyHandler proxyHandler;
+    private final Channel clientChannel;
+    private final RequestProto requestProto;
+    private final ProxyHandler proxyHandler;
+    private final WebsocketProxyHandler wsHandler;
 
     public HttpProxyInitializer(Channel clientChannel, RequestProto requestProto,
-                                ProxyHandler proxyHandler) {
+                                ProxyHandler proxyHandler, WebsocketProxyHandler wsHandler) {
         this.clientChannel = clientChannel;
         this.requestProto = requestProto;
         this.proxyHandler = proxyHandler;
+        this.wsHandler = wsHandler;
     }
 
     @Override
@@ -36,6 +41,12 @@ public class HttpProxyInitializer extends ChannelInitializer {
                 serverConfig.getMaxInitialLineLength(),
                 serverConfig.getMaxHeaderSize(),
                 serverConfig.getMaxChunkSize()));
+        if (this.wsHandler != null) {
+            ch.pipeline().addLast("decompress", new HttpContentDecompressor());
+            ch.pipeline().addLast("aggregator", new HttpObjectAggregator(8192));
+            ch.pipeline().addLast("wsCompression", WebSocketClientCompressionHandler.INSTANCE);
+            ch.pipeline().addLast("wsHandler", this.wsHandler);
+        }
         ch.pipeline().addLast("proxyClientHandle", new HttpProxyClientHandler(clientChannel));
     }
 }

@@ -4,6 +4,7 @@ import io.netty.channel.Channel;
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
+import io.netty.handler.codec.http.websocketx.WebSocketFrame;
 
 /**
  * http拦截器
@@ -34,6 +35,11 @@ public class HttpProxyIntercept {
         pipeline.beforeRequest(clientChannel, httpContent);
     }
 
+    public void beforeRequest(Channel clientChannel, WebSocketFrame webSocketFrame,
+                              HttpProxyInterceptPipeline pipeline) throws Exception {
+        pipeline.beforeRequest(clientChannel, webSocketFrame);
+    }
+
     /**
      * 拦截代理服务器到客户端的响应头
      */
@@ -50,5 +56,11 @@ public class HttpProxyIntercept {
                               HttpProxyInterceptPipeline pipeline)
             throws Exception {
         pipeline.afterResponse(clientChannel, proxyChannel, httpContent);
+    }
+
+    public void afterResponse(Channel clientChannel, Channel proxyChannel, WebSocketFrame webSocketFrame,
+                              HttpProxyInterceptPipeline pipeline)
+            throws Exception {
+        pipeline.afterResponse(clientChannel, proxyChannel, webSocketFrame);
     }
 }

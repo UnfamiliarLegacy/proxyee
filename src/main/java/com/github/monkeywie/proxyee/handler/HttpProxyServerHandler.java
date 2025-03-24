@@ -21,6 +21,8 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.DecoderException;
 import io.netty.handler.codec.DecoderResult;
 import io.netty.handler.codec.http.*;
+import io.netty.handler.codec.http.websocketx.*;
+import io.netty.handler.codec.http.websocketx.extensions.compression.WebSocketClientCompressionHandler;
 import io.netty.handler.proxy.ProxyHandler;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
@@ -29,6 +31,7 @@ import io.netty.resolver.NoopAddressResolverGroup;
 import io.netty.util.ReferenceCountUtil;
 
 import java.net.InetSocketAddress;
+import java.net.URI;
 import java.net.URL;
 import java.util.LinkedList;
 import java.util.List;
@@ -197,6 +200,8 @@ public class HttpProxyServerHandler extends ChannelInboundHandlerAdapter {
                 ReferenceCountUtil.release(msg);
                 setStatus(1);
             }
+        } else if (msg instanceof WebSocketFrame) {
+            getInterceptPipeline().beforeRequest(ctx.channel(), (WebSocketFrame) msg);
         } else { // ssl和websocket的握手处理
             ByteBuf byteBuf = (ByteBuf) msg;
             if (getServerConfig().isHandleSsl() && byteBuf.getByte(0) == 22 && doMitm()) {// ssl握手
@@ -302,6 +307,61 @@ public class HttpProxyServerHandler extends ChannelInboundHandlerAdapter {
         return true;
     }
 
+    private String getWebsocketUrl(final RequestProto requestProto, final HttpRequest request) {
+        return String.format("%s://%s%s",
+                requestProto.getSsl() ? "wss" : "ws",
+                request.headers().get("Host"),
+                request.uri());
+    }
+
+    private WebSocketServerHandshaker handleWebsocketHandshake(final String wsUrl,
+                                                               final Channel channel,
+                                                               final HttpRequest request) {
+        final WebSocketServerHandshakerFactory wsFactory = new WebSocketServerHandshakerFactory(wsUrl, null, true);
+        final WebSocketServerHandshaker handshaker = wsFactory.newHandshaker(request);
+        if (handshaker == null) {
+            WebSocketServerHandshakerFactory.sendUnsupportedVersionResponse(channel);
+        } else {
+            handshaker.handshake(channel, request);
+        }
+
+        return handshaker;
+    }
+
+    private WebsocketProxyHandler handleWebsocketProxyHandshake(final Channel channel,
+                                                                final RequestProto requestProto,
+                                                                final HttpRequest httpRequest) {
+        WebsocketProxyHandler wsHandler = null;
+
+        final boolean isWebsocket =
+                "upgrade".equalsIgnoreCase(httpRequest.headers().get(HttpHeaderNames.CONNECTION)) &&
+                "websocket".equalsIgnoreCase(httpRequest.headers().get(HttpHeaderNames.UPGRADE));
+
+        if (isWebsocket) {
+            // Handle browser <-> proxyee
+            final String wsUrl = getWebsocketUrl(requestProto, httpRequest);
+            final WebSocketServerHandshaker handshaker = handleWebsocketHandshake(wsUrl, channel, httpRequest);
+
+            // Copy headers.
+            final HttpHeaders headers = httpRequest.headers().copy();
+
+            // Remove websocket headers.
+            headers.remove("Sec-WebSocket-Key");
+            headers.remove("Sec-WebSocket-Version");
+            headers.remove("Sec-WebSocket-Extensions");
+
+            // Handle proxyee <-> server
+            wsHandler = new WebsocketProxyHandler(WebSocketClientHandshakerFactory.newHandshaker(
+                    URI.create(wsUrl),
+                    handshaker.version(),
+                    handshaker.selectedSubprotocol(),
+                    true,
+                    headers));
+        }
+
+        return wsHandler;
+    }
+
     private void handleProxyData(Channel channel, Object msg, boolean isHttp) throws Exception {
         if (getInterceptPipeline() == null) {
             setInterceptPipeline(buildOnlyConnectPipeline());
@@ -327,13 +387,18 @@ public class HttpProxyServerHandler extends ChannelInboundHandlerAdapter {
             ProxyHandler proxyHandler = ProxyHandleFactory.build(getInterceptPipeline().getProxyConfig() == null ?
                     proxyConfig : getInterceptPipeline().getProxyConfig());
 
+            // Handle websocket
+            final WebsocketProxyHandler wsHandler = handleWebsocketProxyHandshake(channel, pipeRp, (HttpRequest) msg);
+
             /*
              * 添加SSL client hello的Server Name Indication extension(SNI扩展) 有些服务器对于client
              * hello不带SNI扩展时会直接返回Received fatal alert: handshake_failure(握手错误)
              * 例如：https://cdn.mdn.mozilla.net/static/img/favicon32.7f3da72dcea1.png
              */
-            ChannelInitializer channelInitializer = isHttp ? new HttpProxyInitializer(channel, pipeRp, proxyHandler)
+            ChannelInitializer channelInitializer = isHttp
+                    ? new HttpProxyInitializer(channel, pipeRp, proxyHandler, wsHandler)
                     : new TunnelProxyInitializer(channel, proxyHandler);
+
             Bootstrap bootstrap = new Bootstrap();
             bootstrap.group(getServerConfig().getProxyLoopGroup()) // 注册线程池
                     .channel(NioSocketChannel.class) // 使用NioSocketChannel来作为连接用的channel类
@@ -348,6 +413,14 @@ public class HttpProxyServerHandler extends ChannelInboundHandlerAdapter {
             setChannelFuture(bootstrap.connect(pipeRp.getHost(), pipeRp.getPort()));
             getChannelFuture().addListener((ChannelFutureListener) future -> {
                 if (future.isSuccess()) {
+                    if (wsHandler != null) {
+                        wsHandler.handshakeFuture().addListener(handshakeFuture -> {
+                            if (handshakeFuture.isSuccess()) {
+                                setIsConnect(true);
+                            }
+                        });
+                        return;
+                    }
                     future.channel().writeAndFlush(msg);
                     synchronized (getRequestList()) {
                         getRequestList().forEach(obj -> future.channel().writeAndFlush(obj));
@@ -390,20 +463,26 @@ public class HttpProxyServerHandler extends ChannelInboundHandlerAdapter {
             }
 
             @Override
+            public void beforeRequest(Channel clientChannel, WebSocketFrame webSocketFrame, HttpProxyInterceptPipeline pipeline) throws Exception {
+                handleProxyData(clientChannel, webSocketFrame, false);
+            }
+
+            @Override
             public void afterResponse(Channel clientChannel, Channel proxyChannel, HttpResponse httpResponse,
                                       HttpProxyInterceptPipeline pipeline) throws Exception {
                 clientChannel.writeAndFlush(httpResponse);
-                if (HttpHeaderValues.WEBSOCKET.toString().equals(httpResponse.headers().get(HttpHeaderNames.UPGRADE))) {
-                    // websocket转发原始报文
-                    proxyChannel.pipeline().remove("httpCodec");
-                    clientChannel.pipeline().remove("httpCodec");
-                }
             }
 
             @Override
             public void afterResponse(Channel clientChannel, Channel proxyChannel, HttpContent httpContent,
                                       HttpProxyInterceptPipeline pipeline) throws Exception {
                 clientChannel.writeAndFlush(httpContent);
+            }
+
+            @Override
+            public void afterResponse(Channel clientChannel, Channel proxyChannel, WebSocketFrame webSocketFrame,
+                                      HttpProxyInterceptPipeline pipeline) throws Exception {
+                clientChannel.writeAndFlush(webSocketFrame);
             }
         });
         getInterceptInitializer().init(interceptPipeline);

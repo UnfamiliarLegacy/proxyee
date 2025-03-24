@@ -117,11 +117,11 @@ public class HttpProxyInterceptPipeline implements Iterable<HttpProxyIntercept> 
     }
 
     public void websocketHandshakeCompleted() {
-        if (this.posBeforeContent < intercepts.size()) {
-            HttpProxyIntercept intercept = intercepts.get(this.posBeforeContent++);
+        if (this.posAfterContent < intercepts.size()) {
+            HttpProxyIntercept intercept = intercepts.get(this.posAfterContent++);
             intercept.onWebsocketHandshakeCompleted(this);
         }
-        this.posBeforeContent = 0;
+        this.posAfterContent = 0;
     }
 
     public void websocketRequest(Channel clientChannel, Channel proxyChannel, WebSocketFrame webSocketFrame) throws Exception {

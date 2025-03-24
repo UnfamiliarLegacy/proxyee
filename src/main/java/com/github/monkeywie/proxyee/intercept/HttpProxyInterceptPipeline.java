@@ -116,6 +116,14 @@ public class HttpProxyInterceptPipeline implements Iterable<HttpProxyIntercept> 
         this.posAfterContent = 0;
     }
 
+    public void websocketHandshakeCompleted() {
+        if (this.posBeforeContent < intercepts.size()) {
+            HttpProxyIntercept intercept = intercepts.get(this.posBeforeContent++);
+            intercept.onWebsocketHandshakeCompleted(this);
+        }
+        this.posBeforeContent = 0;
+    }
+
     public void websocketRequest(Channel clientChannel, Channel proxyChannel, WebSocketFrame webSocketFrame) throws Exception {
         if (this.posBeforeContent < intercepts.size()) {
             HttpProxyIntercept intercept = intercepts.get(this.posBeforeContent++);

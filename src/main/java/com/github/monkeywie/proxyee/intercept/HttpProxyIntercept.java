@@ -53,6 +53,10 @@ public class HttpProxyIntercept {
         pipeline.afterResponse(clientChannel, proxyChannel, httpContent);
     }
 
+    public void onWebsocketHandshakeCompleted(HttpProxyInterceptPipeline pipeline) {
+        pipeline.websocketHandshakeCompleted();
+    }
+
     public void onWebsocketRequest(Channel clientChannel,
                                    Channel proxyChannel,
                                    WebSocketFrame webSocketFrame,

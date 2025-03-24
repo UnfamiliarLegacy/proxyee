@@ -425,6 +425,7 @@ public class HttpProxyServerHandler extends ChannelInboundHandlerAdapter {
                         wsHandler.handshakeFuture().addListener(handshakeFuture -> {
                             if (handshakeFuture.isSuccess()) {
                                 setIsConnect(true);
+                                getInterceptPipeline().websocketHandshakeCompleted();
                             }
                         });
                         return;

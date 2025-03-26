@@ -424,7 +424,16 @@ public class HttpProxyServerHandler extends ChannelInboundHandlerAdapter {
                     if (wsHandler != null) {
                         wsHandler.handshakeFuture().addListener(handshakeFuture -> {
                             if (handshakeFuture.isSuccess()) {
-                                setIsConnect(true);
+                                synchronized (getRequestList()) {
+                                    getRequestList().forEach(obj -> {
+                                        if (obj instanceof WebSocketFrame) {
+                                            future.channel().writeAndFlush(obj);
+                                        } else {
+                                        }
+                                    });
+                                    getRequestList().clear();
+                                    setIsConnect(true);
+                                }
                                 getInterceptPipeline().websocketHandshakeCompleted();
                             }
                         });

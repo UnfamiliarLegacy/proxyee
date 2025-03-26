@@ -21,6 +21,10 @@ public class HttpProxyInterceptPipeline implements Iterable<HttpProxyIntercept> 
     private int posBeforeContent = 0;
     private int posAfterHead = 0;
     private int posAfterContent = 0;
+    private int posWebsocketHandshake = 0;
+    private int posWebsocketRequest = 0;
+    private int posWebsocketResponse = 0;
+    private int posWebsocketClose = 0;
 
     private RequestProto requestProto;
     private HttpRequest httpRequest;
@@ -117,36 +121,37 @@ public class HttpProxyInterceptPipeline implements Iterable<HttpProxyIntercept> 
     }
 
     public void websocketHandshakeCompleted() {
-        if (this.posAfterContent < intercepts.size()) {
-            HttpProxyIntercept intercept = intercepts.get(this.posAfterContent++);
+        if (this.posWebsocketHandshake < intercepts.size()) {
+            HttpProxyIntercept intercept = intercepts.get(this.posWebsocketHandshake++);
             intercept.onWebsocketHandshakeCompleted(this);
         }
-        this.posAfterContent = 0;
+        this.posWebsocketHandshake = 0;
     }
 
-    public void websocketRequest(Channel clientChannel, Channel proxyChannel, WebSocketFrame webSocketFrame) throws Exception {
-        if (this.posBeforeContent < intercepts.size()) {
-            HttpProxyIntercept intercept = intercepts.get(this.posBeforeContent++);
+    public void websocketRequest(Channel clientChannel, Channel proxyChannel, WebSocketFrame webSocketFrame)
+            throws Exception {
+        if (this.posWebsocketRequest < intercepts.size()) {
+            HttpProxyIntercept intercept = intercepts.get(this.posWebsocketRequest++);
             intercept.onWebsocketRequest(clientChannel, proxyChannel, webSocketFrame, this);
         }
-        this.posBeforeContent = 0;
+        this.posWebsocketRequest = 0;
     }
 
     public void websocketResponse(Channel clientChannel, Channel proxyChannel, WebSocketFrame webSocketFrame)
             throws Exception {
-        if (this.posAfterContent < intercepts.size()) {
-            HttpProxyIntercept intercept = intercepts.get(this.posAfterContent++);
+        if (this.posWebsocketResponse < intercepts.size()) {
+            HttpProxyIntercept intercept = intercepts.get(this.posWebsocketResponse++);
             intercept.onWebsocketResponse(clientChannel, proxyChannel, webSocketFrame, this);
         }
-        this.posAfterContent = 0;
+        this.posWebsocketResponse = 0;
     }
 
     public void websocketClose() {
-        if (this.posAfterContent < intercepts.size()) {
-            HttpProxyIntercept intercept = intercepts.get(this.posAfterContent++);
+        if (this.posWebsocketClose < intercepts.size()) {
+            HttpProxyIntercept intercept = intercepts.get(this.posWebsocketClose++);
             intercept.onWebsocketClose(this);
         }
-        this.posAfterContent = 0;
+        this.posWebsocketClose = 0;
     }
 
     public int posBeforeHead() {
@@ -181,6 +186,22 @@ public class HttpProxyInterceptPipeline implements Iterable<HttpProxyIntercept> 
         this.posAfterContent = pos;
     }
 
+    public void posWebsocketHandshake(int pos) {
+        this.posWebsocketHandshake = pos;
+    }
+
+    public void posWebsocketRequest(int pos) {
+        this.posWebsocketRequest = pos;
+    }
+
+    public void posWebsocketResponse(int pos) {
+        this.posWebsocketResponse = pos;
+    }
+
+    public void posWebsocketClose(int pos) {
+        this.posWebsocketClose = pos;
+    }
+
     public void resetBeforeHead() {
         posBeforeHead(0);
     }
@@ -195,6 +216,22 @@ public class HttpProxyInterceptPipeline implements Iterable<HttpProxyIntercept> 
 
     public void resetAfterContent() {
         posAfterContent(0);
+    }
+
+    public void resetWebsocketHandshake() {
+        posWebsocketHandshake(0);
+    }
+
+    public void resetWebsocketRequest() {
+        posWebsocketRequest(0);
+    }
+
+    public void resetWebsocketResponse() {
+        posWebsocketResponse(0);
+    }
+
+    public void resetWebsocketClose() {
+        posWebsocketClose(0);
     }
 
     @Override

@@ -6,6 +6,7 @@ import com.github.monkeywie.proxyee.server.auth.HttpProxyAuthenticationProvider;
 import com.github.monkeywie.proxyee.config.IdleStateCheck;
 import io.netty.channel.EventLoopGroup;
 import io.netty.handler.codec.http.HttpObjectDecoder;
+import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig;
 import io.netty.handler.ssl.SslContext;
 import io.netty.resolver.AddressResolverGroup;
 import io.netty.resolver.DefaultAddressResolverGroup;
@@ -37,6 +38,7 @@ public class HttpProxyServerConfig {
     private int maxHeaderSize = HttpObjectDecoder.DEFAULT_MAX_HEADER_SIZE;
     private int maxChunkSize = HttpObjectDecoder.DEFAULT_MAX_CHUNK_SIZE;
     private IdleStateCheck idleStateCheck;
+    private WebSocketDecoderConfig wsDecoderConfig = WebSocketDecoderConfig.newBuilder().allowExtensions(true).build();
 
     public HttpProxyServerConfig() {
         this(DefaultAddressResolverGroup.INSTANCE);
@@ -65,6 +67,7 @@ public class HttpProxyServerConfig {
         this.maxHeaderSize = builder.maxHeaderSize;
         this.maxChunkSize = builder.maxChunkSize;
         this.idleStateCheck = builder.idleStateCheck;
+        this.wsDecoderConfig = builder.wsDecoderConfig;
     }
 
     public SslContext getClientSslCtx() {
@@ -231,6 +234,14 @@ public class HttpProxyServerConfig {
         this.idleStateCheck = idleStateCheck;
     }
 
+    public WebSocketDecoderConfig getWsDecoderConfig() {
+        return wsDecoderConfig;
+    }
+
+    public void setWsDecoderConfig(WebSocketDecoderConfig wsDecoderConfig) {
+        this.wsDecoderConfig = wsDecoderConfig;
+    }
+
     public static class Builder {
         private SslContext clientSslCtx;
         private String issuer;
@@ -251,6 +262,7 @@ public class HttpProxyServerConfig {
         private int maxHeaderSize = HttpObjectDecoder.DEFAULT_MAX_HEADER_SIZE;
         private int maxChunkSize = HttpObjectDecoder.DEFAULT_MAX_CHUNK_SIZE;
         private IdleStateCheck idleStateCheck;
+        private WebSocketDecoderConfig wsDecoderConfig;
 
         public Builder() {
             this(DefaultAddressResolverGroup.INSTANCE);
@@ -347,6 +359,11 @@ public class HttpProxyServerConfig {
 
         public Builder setIdleStateCheck(IdleStateCheck idleStateCheck) {
             this.idleStateCheck = idleStateCheck;
+            return this;
+        }
+
+        public Builder setWsDecoderConfig(WebSocketDecoderConfig wsDecoderConfig) {
+            this.wsDecoderConfig = wsDecoderConfig;
             return this;
         }
 

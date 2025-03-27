@@ -319,7 +319,8 @@ public class HttpProxyServerHandler extends ChannelInboundHandlerAdapter {
     private WebSocketServerHandshaker handleWebsocketHandshake(final String wsUrl,
                                                                final Channel channel,
                                                                final HttpRequest request) {
-        final WebSocketServerHandshakerFactory wsFactory = new WebSocketServerHandshakerFactory(wsUrl, null, true);
+        final WebSocketDecoderConfig decoderConfig = this.serverConfig.getWsDecoderConfig();
+        final WebSocketServerHandshakerFactory wsFactory = new WebSocketServerHandshakerFactory(wsUrl, null, decoderConfig);
         final WebSocketServerHandshaker handshaker = wsFactory.newHandshaker(request);
         if (handshaker == null) {
             WebSocketServerHandshakerFactory.sendUnsupportedVersionResponse(channel);
@@ -357,8 +358,9 @@ public class HttpProxyServerHandler extends ChannelInboundHandlerAdapter {
                     URI.create(wsUrl),
                     handshaker.version(),
                     handshaker.selectedSubprotocol(),
-                    true,
-                    headers));
+                    this.serverConfig.getWsDecoderConfig().allowExtensions(),
+                    headers,
+                    this.serverConfig.getWsDecoderConfig().maxFramePayloadLength()));
 
             // Update request proto.
             requestProto.setWebsocketUrl(handshaker.uri());

@@ -267,7 +267,8 @@ public class HttpProxyServerHandler extends ChannelInboundHandlerAdapter {
         if (getServerConfig().getHttpProxyAcceptHandler() != null) {
             getServerConfig().getHttpProxyAcceptHandler().onClose(ctx.channel());
         }
-        if (getRequestProto().getWebsocketUrl() != null) {
+        final RequestProto requestProto = getRequestProto();
+        if (requestProto != null && requestProto.getWebsocketUrl() != null) {
             getInterceptPipeline().websocketClose();
         }
     }

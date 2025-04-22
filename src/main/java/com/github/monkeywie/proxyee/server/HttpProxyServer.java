@@ -16,6 +16,8 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpServerCodec;
+import io.netty.handler.codec.http.websocketx.WebSocketFrameAggregator;
+import io.netty.handler.codec.http.websocketx.extensions.compression.WebSocketServerCompressionHandler;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 import io.netty.handler.ssl.SslContextBuilder;
@@ -194,6 +196,13 @@ public class HttpProxyServer {
                                             idleStateCheck.getAllIdleTime(), TimeUnit.MILLISECONDS)
                             );
                         }
+
+                        // Add websocket compression and aggregator.
+                        if (serverConfig.getWsDecoderConfig() != null) {
+                            ch.pipeline().addLast("wsCompression", new WebSocketServerCompressionHandler());
+                            ch.pipeline().addLast("wsAggregator",new WebSocketFrameAggregator(serverConfig.getWsDecoderConfig().maxFramePayloadLength()));
+                        }
+
                         ch.pipeline().addLast("serverHandle",
                                 new HttpProxyServerHandler(serverConfig, proxyInterceptInitializer, proxyConfig,
                                         httpProxyExceptionHandle));

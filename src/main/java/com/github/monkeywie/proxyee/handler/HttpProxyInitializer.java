@@ -7,6 +7,7 @@ import io.netty.channel.ChannelInitializer;
 import io.netty.handler.codec.http.HttpClientCodec;
 import io.netty.handler.codec.http.HttpContentDecompressor;
 import io.netty.handler.codec.http.HttpObjectAggregator;
+import io.netty.handler.codec.http.websocketx.WebSocketFrameAggregator;
 import io.netty.handler.codec.http.websocketx.extensions.compression.WebSocketClientCompressionHandler;
 import io.netty.handler.proxy.ProxyHandler;
 
@@ -43,8 +44,9 @@ public class HttpProxyInitializer extends ChannelInitializer {
                 serverConfig.getMaxChunkSize()));
         if (this.wsHandler != null) {
             ch.pipeline().addLast("decompress", new HttpContentDecompressor());
-            ch.pipeline().addLast("aggregator", new HttpObjectAggregator(8192));
+            ch.pipeline().addLast("aggregator", new HttpObjectAggregator(1024 * 1024 * 8));
             ch.pipeline().addLast("wsCompression", WebSocketClientCompressionHandler.INSTANCE);
+            ch.pipeline().addLast("wsAggregator", new WebSocketFrameAggregator(serverConfig.getWsDecoderConfig().maxFramePayloadLength()));
             ch.pipeline().addLast("wsHandler", this.wsHandler);
         }
         ch.pipeline().addLast("proxyClientHandle", new HttpProxyClientHandler(clientChannel));

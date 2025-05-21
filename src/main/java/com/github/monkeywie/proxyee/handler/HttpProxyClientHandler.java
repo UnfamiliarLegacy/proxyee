@@ -7,6 +7,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.handler.codec.DecoderResult;
 import io.netty.handler.codec.http.*;
+import io.netty.handler.codec.http.websocketx.CloseWebSocketFrame;
 import io.netty.handler.codec.http.websocketx.WebSocketFrame;
 import io.netty.util.ReferenceCountUtil;
 
@@ -39,6 +40,11 @@ public class HttpProxyClientHandler extends ChannelInboundHandlerAdapter {
         } else if (msg instanceof HttpContent) {
             interceptPipeline.afterResponse(clientChannel, ctx.channel(), (HttpContent) msg);
         } else if (msg instanceof WebSocketFrame) {
+            if (msg instanceof CloseWebSocketFrame) {
+                interceptPipeline.websocketClose();
+                return;
+            }
+
             interceptPipeline.websocketResponse(clientChannel, ctx.channel(), (WebSocketFrame) msg);
         } else {
             clientChannel.writeAndFlush(msg);

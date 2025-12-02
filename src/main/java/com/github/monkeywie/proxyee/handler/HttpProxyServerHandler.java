@@ -359,7 +359,7 @@ public class HttpProxyServerHandler extends ChannelInboundHandlerAdapter {
         WebsocketProxyHandler wsHandler = null;
 
         final boolean isWebsocket =
-                "upgrade".equalsIgnoreCase(httpRequest.headers().get(HttpHeaderNames.CONNECTION)) &&
+                httpRequest.headers().get(HttpHeaderNames.CONNECTION, "").toLowerCase().contains("upgrade") &&
                 "websocket".equalsIgnoreCase(httpRequest.headers().get(HttpHeaderNames.UPGRADE));
 
         if (isWebsocket) {

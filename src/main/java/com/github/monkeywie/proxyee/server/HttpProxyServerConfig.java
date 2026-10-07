@@ -18,6 +18,7 @@ import java.util.Date;
 
 public class HttpProxyServerConfig {
     private SslContext clientSslCtx;
+    private SslContext clientSslCtxHttp1;
     private String issuer;
     private Date caNotBefore;
     private Date caNotAfter;
@@ -50,6 +51,7 @@ public class HttpProxyServerConfig {
 
     private HttpProxyServerConfig(Builder builder) {
         this.clientSslCtx = builder.clientSslCtx;
+        this.clientSslCtxHttp1 = builder.clientSslCtxHttp1;
         this.issuer = builder.issuer;
         this.caNotBefore = builder.caNotBefore;
         this.caNotAfter = builder.caNotAfter;
@@ -76,6 +78,14 @@ public class HttpProxyServerConfig {
 
     public void setClientSslCtx(SslContext clientSslCtx) {
         this.clientSslCtx = clientSslCtx;
+    }
+
+    public SslContext getClientSslCtxHttp1() {
+        return clientSslCtxHttp1 == null ? clientSslCtx : clientSslCtxHttp1;
+    }
+
+    public void setClientSslCtxHttp1(SslContext clientSslCtxHttp1) {
+        this.clientSslCtxHttp1 = clientSslCtxHttp1;
     }
 
     public String getIssuer() {
@@ -244,6 +254,7 @@ public class HttpProxyServerConfig {
 
     public static class Builder {
         private SslContext clientSslCtx;
+        private SslContext clientSslCtxHttp1;
         private String issuer;
         private Date caNotBefore;
         private Date caNotAfter;
@@ -274,6 +285,11 @@ public class HttpProxyServerConfig {
 
         public Builder setClientSslCtx(SslContext clientSslCtx) {
             this.clientSslCtx = clientSslCtx;
+            return this;
+        }
+
+        public Builder setClientSslCtxHttp1(SslContext clientSslCtxHttp1) {
+            this.clientSslCtxHttp1 = clientSslCtxHttp1;
             return this;
         }
 

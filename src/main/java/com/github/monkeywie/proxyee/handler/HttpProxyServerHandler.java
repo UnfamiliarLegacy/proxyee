@@ -459,6 +459,14 @@ public class HttpProxyServerHandler extends ChannelInboundHandlerAdapter {
                                     setIsConnect(true);
                                 }
                                 getInterceptPipeline().websocketHandshakeCompleted();
+                            } else {
+                                synchronized (getRequestList()) {
+                                    getRequestList().forEach(ReferenceCountUtil::release);
+                                    getRequestList().clear();
+                                }
+                                getExceptionHandle().beforeCatch(channel, handshakeFuture.cause());
+                                future.channel().close();
+                                channel.close();
                             }
                         });
                         return;

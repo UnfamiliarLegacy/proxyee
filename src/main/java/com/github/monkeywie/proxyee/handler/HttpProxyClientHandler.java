@@ -7,16 +7,20 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.handler.codec.DecoderResult;
 import io.netty.handler.codec.http.*;
+import io.netty.handler.codec.http2.HttpConversionUtil;
 import io.netty.handler.codec.http.websocketx.CloseWebSocketFrame;
 import io.netty.handler.codec.http.websocketx.WebSocketFrame;
 import io.netty.util.ReferenceCountUtil;
 
 public class HttpProxyClientHandler extends ChannelInboundHandlerAdapter {
 
-    private Channel clientChannel;
+    private final Channel clientChannel;
+    private final HttpProxyExceptionHandle exceptionHandle;
 
     public HttpProxyClientHandler(Channel clientChannel) {
         this.clientChannel = clientChannel;
+        HttpProxyServerHandler serverHandler = (HttpProxyServerHandler) clientChannel.pipeline().get("serverHandle");
+        this.exceptionHandle = serverHandler.getExceptionHandle();
     }
 
     @Override
@@ -25,6 +29,11 @@ public class HttpProxyClientHandler extends ChannelInboundHandlerAdapter {
         if (!clientChannel.isOpen()) {
             ReferenceCountUtil.release(msg);
             return;
+        }
+        if (msg instanceof HttpMessage) {
+            for (HttpConversionUtil.ExtensionHeaderNames name : HttpConversionUtil.ExtensionHeaderNames.values()) {
+                ((HttpMessage) msg).headers().remove(name.text());
+            }
         }
         HttpProxyInterceptPipeline interceptPipeline = ((HttpProxyServerHandler) clientChannel.pipeline()
                 .get("serverHandle")).getInterceptPipeline();
@@ -41,7 +50,11 @@ public class HttpProxyClientHandler extends ChannelInboundHandlerAdapter {
             interceptPipeline.afterResponse(clientChannel, ctx.channel(), (HttpContent) msg);
         } else if (msg instanceof WebSocketFrame) {
             if (msg instanceof CloseWebSocketFrame) {
-                interceptPipeline.websocketClose();
+                try {
+                    interceptPipeline.websocketResponse(clientChannel, ctx.channel(), (WebSocketFrame) msg);
+                } finally {
+                    interceptPipeline.websocketClose();
+                }
                 return;
             }
 
@@ -60,8 +73,6 @@ public class HttpProxyClientHandler extends ChannelInboundHandlerAdapter {
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         ctx.channel().close();
         clientChannel.close();
-        HttpProxyExceptionHandle exceptionHandle = ((HttpProxyServerHandler) clientChannel.pipeline()
-                .get("serverHandle")).getExceptionHandle();
         exceptionHandle.afterCatch(clientChannel, ctx.channel(), cause);
     }
 }

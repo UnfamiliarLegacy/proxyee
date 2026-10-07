@@ -4,11 +4,12 @@ import com.github.monkeywie.proxyee.server.HttpProxyServerConfig;
 import com.github.monkeywie.proxyee.util.ProtoUtil.RequestProto;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelInitializer;
-import io.netty.handler.codec.http.HttpClientCodec;
 import io.netty.handler.codec.http.HttpContentDecompressor;
 import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.websocketx.WebSocketFrameAggregator;
 import io.netty.handler.proxy.ProxyHandler;
+import io.netty.handler.ssl.SslContext;
+import io.netty.handler.ssl.SslHandler;
 
 /**
  * HTTP代理，转发解码后的HTTP报文
@@ -35,12 +36,22 @@ public class HttpProxyInitializer extends ChannelInitializer {
         }
         HttpProxyServerConfig serverConfig = ((HttpProxyServerHandler) clientChannel.pipeline().get("serverHandle")).getServerConfig();
         if (requestProto.getSsl()) {
-            ch.pipeline().addLast(serverConfig.getClientSslCtx().newHandler(ch.alloc(), requestProto.getHost(), requestProto.getPort()));
+            final SslContext clientSslContext = wsHandler == null
+                    ? serverConfig.getClientSslCtx()
+                    : serverConfig.getClientSslCtxHttp1();
+            final SslHandler sslHandler = clientSslContext
+                    .newHandler(ch.alloc(), requestProto.getHost(), requestProto.getPort());
+
+            ch.pipeline().addLast("ssl", sslHandler);
+            if (wsHandler == null) {
+                ch.pipeline().addLast("protocol", new HttpProxyClientProtocolHandler(
+                        sslHandler, true, serverConfig));
+            } else {
+                HttpProxyClientProtocolHandler.addHttp1Codec(ch.pipeline(), serverConfig);
+            }
+        } else {
+            HttpProxyClientProtocolHandler.addHttp1Codec(ch.pipeline(), serverConfig);
         }
-        ch.pipeline().addLast("httpCodec", new HttpClientCodec(
-                serverConfig.getMaxInitialLineLength(),
-                serverConfig.getMaxHeaderSize(),
-                serverConfig.getMaxChunkSize()));
         if (this.wsHandler != null) {
             ch.pipeline().addLast("decompress", new HttpContentDecompressor());
             ch.pipeline().addLast("aggregator", new HttpObjectAggregator(1024 * 1024 * 8));

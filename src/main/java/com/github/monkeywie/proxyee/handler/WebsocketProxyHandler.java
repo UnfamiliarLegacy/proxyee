@@ -7,6 +7,8 @@ import io.netty.util.CharsetUtil;
 import io.netty.util.internal.logging.InternalLogger;
 import io.netty.util.internal.logging.InternalLoggerFactory;
 
+import java.nio.channels.ClosedChannelException;
+
 public class WebsocketProxyHandler extends SimpleChannelInboundHandler<Object> {
 
     private final static InternalLogger log = InternalLoggerFactory.getInstance(WebsocketProxyHandler.class);
@@ -64,5 +66,13 @@ public class WebsocketProxyHandler extends SimpleChannelInboundHandler<Object> {
             handshakeFuture.setFailure(cause);
         }
         ctx.close();
+    }
+
+    @Override
+    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+        if (!handshakeFuture.isDone()) {
+            handshakeFuture.tryFailure(new ClosedChannelException());
+        }
+        super.channelInactive(ctx);
     }
 }
